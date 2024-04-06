@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Profile</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <style>
+        /* Add your custom styles here */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-8 offset-md-2">
+                <div class="card">
+                    <div class="card-body">
+                        <% if (teacher.verify === 0) { %>
+                            <h2>Teacher Approval Pending</h2>
+                            <p>This teacher's profile is pending approval.</p>
+                            <p>Please wait for verification.or contact to school admin</p>
+                         
+                            <p>Your Name: <%= teacher.name %></p>
+                            <p>Your Email: <%= teacher.email %></p>
+
+                        <% } else { %>
+                            <h2>Teacher Details</h2>
+                            <p>Your Name: <%= teacher.name %></p>
+                            <p>Your Email: <%= teacher.email %></p>
+                            <!-- Add more details as needed -->
+                        <% } %>
+                        <!-- Add button for class selection -->
+                        <% if (teacher.verify !== 0) { %>
+                            <button type="button" class="btn btn-primary">Select Class</button>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Bootstrap JS -->
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <!-- Custom JavaScript -->
+    <script>
+        // Add your custom JavaScript code here
+    </script>
+</body>
+</html>

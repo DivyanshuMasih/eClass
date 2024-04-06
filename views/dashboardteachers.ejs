@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <style>
+        /* Custom styles for the teacher list */
+        #teacherListContainer {
+            height: 300px; /* Set the height of the container */
+            overflow-y: auto; /* Enable vertical scrolling */
+            padding-right: 15px; /* Add some padding to avoid the scrollbar overlapping content */
+        }
+        #teacherList {
+            padding: 10px; /* Add padding to the list items */
+        }
+        .teacher-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            position: relative;
+        }
+        .teacher-name {
+            font-weight: bold;
+            color: #007bff;
+        }
+        .teacher-email {
+            color: #6c757d;
+        }
+        .verification-status {
+            font-size: 12px;
+        }
+        .action-buttons {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
+        .btn {
+            margin-left: 5px;
+        }
+        /* Style for disabled verify button */
+        .verify-btn.disabled {
+            background-color: #6c757d; /* Change background color */
+            border-color: #6c757d; /* Change border color */
+            cursor: not-allowed; /* Change cursor style */
+            pointer-events: none; /* Disable pointer events */
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-md-8 offset-md-2">
+                <div class="card">
+                    <div class="card-body">
+                        <h1 class="card-title">Welcome, <%= admin.name %>!</h1>
+                        <h6 class="card-title"><a class="btn btn-primary" href="/logout">Logout</a></h6>
+                        <ul class="list-group">
+                            <li class="list-group-item">Username: <%= admin.username %></li>
+                            <li class="list-group-item">Position: <%= admin.position %></li>
+                            <!-- Add more details as needed -->
+                        </ul>
+                        <!-- teacher list label -->
+                        <h2 class="mt-3">Teachers List</h2>
+                        <h6><a href="/dashboard">Change to Students list</a></h6>
+                        <!-- Search input for teachers -->
+                        <input type="text" id="teacherSearchInput" placeholder="Search teachers...">
+                        <!-- Reload all button -->
+                        <button type="button" onclick="reloadAllTeachers()" class="btn btn-primary">Reload All</button>
+                        <div id="teacherListContainer">
+                            <div id="teacherList"></div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Bootstrap JS -->
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <!-- Custom JavaScript -->
+    <script>
+        function loadDoc() {
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    var teachers = JSON.parse(this.responseText);
+                    var teacherList = document.getElementById("teacherList");
+
+                    // Clear previous content
+                    teacherList.innerHTML = "";
+
+                    // Create HTML elements for each teacher
+                    var i=0;
+                    teachers.forEach(function(teacher) {
+                        var teacherDiv = document.createElement("div");
+                        teacherDiv.classList.add("teacher-item");
+                        i++;
+                        teacherDiv.innerHTML = `
+                          
+                            <span class="teacher-name">${i}. ${teacher.name}</span><br>
+                            <span class="verification-status">${teacher.verify ? "Verified" : "Not Verified"}</span><br>
+                            <span class="teacher-email">${teacher.email}</span><br>
+                            <div class="action-buttons">
+                                <button class="btn btn-primary verify-btn${teacher.verify ? ' disabled' : ''}" data-id="${teacher.idteacher}">Verify</button>
+                                <button class="btn btn-danger block-btn${teacher.verify ? '' : ' disabled'}" data-id="${teacher.idteacher}">Block</button>
+                                <button class="btn btn-warning edit-btn" data-id="${teacher.idteacher}">Edit</button>
+                                <button class="btn btn-secondary delete-btn" onclick="deleteteacherstart(${teacher.idteacher})">Delete</button>
+                            </div>
+                        `;
+                        teacherList.appendChild(teacherDiv);
+                    });
+
+                    // Add event listeners to the verify buttons
+                    var verifyButtons = document.getElementsByClassName("verify-btn");
+                    for (var i = 0; i < verifyButtons.length; i++) {
+                        verifyButtons[i].addEventListener("click", function() {
+                            var teacherId = this.getAttribute("data-id");
+                            var confirmVerify = confirm("Are you sure you want to verify this teacher?");
+                            if (confirmVerify) {
+                                verifyteacher(teacherId, this);
+                            }
+                        });
+                    }
+
+                    // Add event listeners to the block buttons
+                    var blockButtons = document.getElementsByClassName("block-btn");
+                    for (var i = 0; i < blockButtons.length; i++) {
+                        blockButtons[i].addEventListener("click", function() {
+                            var teacherId = this.getAttribute("data-id");
+                            var confirmBlock = confirm("Are you sure you want to block this teacher?");
+                            if (confirmBlock) {
+                                blockteacher(teacherId, this);
+                            }
+                        });
+                    }
+
+                    // Add event listeners to the edit buttons
+                    var editButtons = document.getElementsByClassName("edit-btn");
+                    for (var i = 0; i < editButtons.length; i++) {
+                        editButtons[i].addEventListener("click", function() {
+                            var teacherId = this.getAttribute("data-id");
+                            openEditForm(teacherId);
+                        });
+                    }
+                }
+            };
+            xhttp.open("GET", "/teacherlist", true);
+            xhttp.send();
+        }
+
+// Function to open edit form
+function openEditForm(teacherId) {
+    // Create a new XMLHttpRequest object
+    var xhttp = new XMLHttpRequest();
+
+    // Define the function to handle the response from the server
+    xhttp.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+            // Extract the teacher data from the response
+            var teacherData = JSON.parse(this.responseText);
+
+            // Create the form elements dynamically
+            var form = document.createElement("form");
+            form.setAttribute("action", "/updateteacher");
+            form.setAttribute("method", "post");
+            form.innerHTML = `
+                <div class="form-group">
+                    <label for="name">Name:</label>
+                    <input type="text" class="form-control" id="name" name="name" value="${teacherData.name}">
+                </div>
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" class="form-control" id="email" name="email" value="${teacherData.email}">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="text" class="form-control" id="password" name="password" value="${teacherData.password}">
+                </div>
+               
+                <div class="form-group">
+                    <label for="rollnumber">Employe Id:</label>
+                    <input type="text" class="form-control" id="employeeid" name="employeeid" value="${teacherData.employeeid}">
+                </div>
+
+                <div class="form-group">
+                    <input type="hidden" class="form-control" id="idteacher" name="idteacher" value="${teacherData.idteacher}">
+                </div>
+                <button type="submit" class="btn btn-primary">Update</button>
+                <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
+            `;
+
+            // Hide the teacher list
+            var teacherListContainer = document.getElementById("teacherList");
+            teacherListContainer.innerHTML = ''; // Clear existing content
+            teacherListContainer.appendChild(form); // Append the form to the container
+
+            // Add event listener to the form submit event
+            form.addEventListener("submit", function(event) {
+                var confirmUpdate = confirm("Are you sure you want to update this teacher?");
+                if (!confirmUpdate) {
+                    event.preventDefault(); // Cancel form submission if the user cancels the update
+                }
+            });
+
+            // Add event listener to the cancel button
+            var cancelButton = form.querySelector(".cancel-btn");
+            cancelButton.addEventListener("click", function() {
+                // Remove the form from the document
+                form.parentNode.removeChild(form);
+                // Show the teacher list
+                //document.getElementById("teacherListContainer").style.display = "block";
+                loadDoc();
+            });
+        }
+    };
+
+    // Open a POST request to fetch the teacher details
+    xhttp.open("POST", "/getteacherDetails", true);
+    xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    xhttp.send("teacherId=" + teacherId);
+}
+
+
+// Function to update teacher details
+function updateteacherDetails(formData, teacherId) {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+            // Remove the form from the document
+            var form = document.getElementById("editForm");
+            if (form) {
+                form.parentNode.removeChild(form);
+            }
+            // Show the teacher list
+            document.getElementById("teacherListContainer").style.display = "block";
+            // Reload the teacher list after updating details
+            loadDoc();
+        }
+    };
+    // Open a POST request to update teacher details
+    xhttp.open("POST", "/updateteacherDetails?teacherId=" + teacherId, true);
+    xhttp.send(formData);
+}
+
+
+        // Function to verify a teacher
+        function verifyteacher(teacherId, verifyButton) {
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    // Reload the teacher list after verification
+                    loadDoc();
+                }
+            };
+            xhttp.open("POST", "/verifyteacher", true);
+            xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+            xhttp.send("teacherId=" + teacherId);
+        }
+
+        // Function to block a teacher
+        function blockteacher(teacherId, blockButton) {
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    // Reload the teacher list after blocking
+                    loadDoc();
+                }
+            };
+            xhttp.open("POST", "/blockteacher", true);
+            xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+            xhttp.send("teacherId=" + teacherId);
+        }
+
+        // Call the function to load teacher information
+        loadDoc();
+
+    function deleteteacherstart(teacherId) {
+        var confirmDelete = confirm("Are you sure you want to delete this teacher?");
+        if (confirmDelete) {
+            deleteteacher(teacherId);
+        }
+    }
+
+// Function to delete a teacher
+function deleteteacher(teacherId) {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+            // Reload the teacher list after deletion
+            loadDoc();
+        }
+    };
+    xhttp.open("POST", "/deleteteacher", true);
+    xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    xhttp.send("teacherId=" + teacherId);
+}
+
+// Function to reload all teachers
+function reloadAllTeachers() {
+    loadDoc();// Call your function to reload teachers
+}
+
+// Attach event listener to search input field for keyup event
+document.getElementById("teacherSearchInput").addEventListener("keyup", function() {
+    searchTeachers(); // Call searchTeachers function on every key press
+});
+
+// Function to search teachers based on the input text
+function searchTeachers() {
+    var input, filter, teacherList, teacherItems, teacherName, i, txtValue;
+    input = document.getElementById("teacherSearchInput");
+    filter = input.value.toUpperCase();
+    teacherList = document.getElementById("teacherList");
+    teacherItems = teacherList.getElementsByClassName("teacher-item");
+    for (i = 0; i < teacherItems.length; i++) {
+        teacherName = teacherItems[i].getElementsByClassName("teacher-name")[0];
+        if (teacherName) {
+            txtValue = teacherName.textContent || teacherName.innerText;
+            if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                teacherItems[i].style.display = "";
+            } else {
+                teacherItems[i].style.display = "none";
+            }
+        }
+    }
+}
+
+    </script>
+</body>
+</html>

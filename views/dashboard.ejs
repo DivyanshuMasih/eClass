@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <style>
+        /* Custom styles for the student list */
+        #studentListContainer {
+            height: 300px; /* Set the height of the container */
+            overflow-y: auto; /* Enable vertical scrolling */
+            padding-right: 15px; /* Add some padding to avoid the scrollbar overlapping content */
+        }
+        #studentList {
+            padding: 10px; /* Add padding to the list items */
+        }
+        .student-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            position: relative;
+        }
+        .student-name {
+            font-weight: bold;
+            color: #007bff;
+        }
+        .student-email {
+            color: #6c757d;
+        }
+        .verification-status {
+            font-size: 12px;
+        }
+        .action-buttons {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
+        .btn {
+            margin-left: 5px;
+        }
+        /* Style for disabled verify button */
+        .verify-btn.disabled {
+            background-color: #6c757d; /* Change background color */
+            border-color: #6c757d; /* Change border color */
+            cursor: not-allowed; /* Change cursor style */
+            pointer-events: none; /* Disable pointer events */
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-md-8 offset-md-2">
+                <div class="card">
+                    <div class="card-body">
+                        <h1 class="card-title">Welcome, <%= admin.name %>!</h1>
+                        <h6 class="card-title"><a class="btn btn-primary" href="/logout">Logout</a></h6>
+                        <ul class="list-group">
+                            <li class="list-group-item">Username: <%= admin.username %></li>
+                            <li class="list-group-item">Position: <%= admin.position %></li>
+                            <!-- Add more details as needed -->
+                        </ul>
+                        <!-- Student list label -->
+                        <h2 class="mt-3">Students List</h2>
+                        <h6><a href="/dashboardteachers">Change to Teachers list</a></h6>
+                        <div id="studentListContainer">
+                            <div>
+                                <input type="text" id="searchInput" placeholder="Search student name">
+                                <button onclick="reloadAllStudents()" class="btn btn-secondary">Reload All</button>
+                            </div>
+                            <div id="studentList"></div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Bootstrap JS -->
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <!-- Custom JavaScript -->
+    <script>
+      function loadDoc() {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+            var students = JSON.parse(this.responseText);
+            var studentList = document.getElementById("studentList");
+
+            // Clear previous content
+            studentList.innerHTML = "";
+
+            // Create HTML elements for each student
+            var i=0;
+            students.forEach(function(student) {
+                var studentDiv = document.createElement("div");
+                studentDiv.classList.add("student-item");
+                i++;
+                studentDiv.innerHTML = `
+                    <span class="student-name">${i}. ${student.name}</span><br>
+                    <span class="student-info">Email: ${student.email}</span><br>
+                    <span class="student-info">Class: ${student.class}</span><br>
+                    <span class="student-info">Roll Number: ${student.rollnumber}</span><br>
+                    <span class="verification-status">${student.verify ? "Verified" : "Not Verified"}</span><br>
+                    <div class="action-buttons">
+                        <button class="btn btn-primary verify-btn${student.verify ? ' disabled' : ''}" data-id="${student.idstudent}">Verify</button>
+                        <button class="btn btn-danger block-btn${student.verify ? '' : ' disabled'}" data-id="${student.idstudent}">Block</button>
+                        <button class="btn btn-warning edit-btn" data-id="${student.idstudent}">Edit</button>
+                        <button class="btn btn-secondary delete-btn" onclick="deletestudentstart(${student.idstudent})">Delete</button>
+                    </div>
+                `;
+                studentList.appendChild(studentDiv);
+            });
+
+            // Add event listeners to the verify buttons
+            var verifyButtons = document.getElementsByClassName("verify-btn");
+            for (var i = 0; i < verifyButtons.length; i++) {
+                verifyButtons[i].addEventListener("click", function() {
+                    var studentId = this.getAttribute("data-id");
+                    var confirmVerify = confirm("Are you sure you want to verify this student?");
+                    if (confirmVerify) {
+                        verifyStudent(studentId, this);
+                    }
+                });
+            }
+
+            // Add event listeners to the block buttons
+            var blockButtons = document.getElementsByClassName("block-btn");
+            for (var i = 0; i < blockButtons.length; i++) {
+                blockButtons[i].addEventListener("click", function() {
+                    var studentId = this.getAttribute("data-id");
+                    var confirmBlock = confirm("Are you sure you want to block this student?");
+                    if (confirmBlock) {
+                        blockStudent(studentId, this);
+                    }
+                });
+            }
+
+            // Add event listeners to the edit buttons
+            var editButtons = document.getElementsByClassName("edit-btn");
+            for (var i = 0; i < editButtons.length; i++) {
+                editButtons[i].addEventListener("click", function() {
+                    var studentId = this.getAttribute("data-id");
+                    openEditForm(studentId);
+                });
+            }
+        }
+    };
+    xhttp.open("GET", "/studentlist", true);
+    xhttp.send();
+}
+
+
+// Function to open edit form
+function openEditForm(studentId) {
+    // Create a new XMLHttpRequest object
+    var xhttp = new XMLHttpRequest();
+
+    // Define the function to handle the response from the server
+    xhttp.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+            // Extract the student data from the response
+            var studentData = JSON.parse(this.responseText);
+
+            // Create the form elements dynamically
+            var form = document.createElement("form");
+            form.setAttribute("action", "/updatestudent");
+            form.setAttribute("method", "post");
+            form.innerHTML = `
+                <div class="form-group">
+                    <label for="name">Name:</label>
+                    <input type="text" class="form-control" id="name" name="name" value="${studentData.name}">
+                </div>
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" class="form-control" id="email" name="email" value="${studentData.email}">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="text" class="form-control" id="password" name="password" value="${studentData.password}">
+                </div>
+                <div class="form-group">
+                    <label for="class">Class:</label>
+                    <select class="form-control" id="class" name="classs">
+                        ${generateClassOptions(studentData.class)}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="rollnumber">Roll Number:</label>
+                    <input type="text" class="form-control" id="rollnumber" name="rollno" value="${studentData.rollnumber}">
+                </div>
+                <div class="form-group">
+                    <label for="subject">Subject:</label>
+                    <input type="text" class="form-control" id="subject" name="subject" value="${studentData.subject}">
+                </div>
+                <div class="form-group">
+                    <input type="hidden" class="form-control" id="idstudent" name="idstudent" value="${studentData.idstudent}">
+                </div>
+                <button type="submit" class="btn btn-primary">Update</button>
+                <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
+            `;
+
+            // Set the selected class option
+            var classSelect = form.querySelector('#class');
+            classSelect.value = studentData.class;
+
+            // Hide the student list
+            var studentListContainer = document.getElementById("studentList");
+            studentListContainer.innerHTML = ''; // Clear existing content
+            studentListContainer.appendChild(form); // Append the form to the container
+
+            // Add event listener to the form submit event
+            form.addEventListener("submit", function(event) {
+                var confirmUpdate = confirm("Are you sure you want to update this student?");
+                if (!confirmUpdate) {
+                    event.preventDefault(); // Cancel form submission if the user cancels the update
+                }
+            });
+
+            // Add event listener to the cancel button
+            var cancelButton = form.querySelector(".cancel-btn");
+            cancelButton.addEventListener("click", function() {
+                // Remove the form from the document
+                form.parentNode.removeChild(form);
+                // Show the student list
+                //document.getElementById("studentListContainer").style.display = "block";
+                loadDoc();
+            });
+        }
+    };
+
+    // Open a POST request to fetch the student details
+    xhttp.open("POST", "/getStudentDetails", true);
+    xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    xhttp.send("studentId=" + studentId);
+}
+
+// Function to generate options for class select
+function generateClassOptions(selectedClass) {
+    var options = '';
+    for (var i = 1; i <= 12; i++) {
+        options += `<option value="${i}" ${selectedClass == i ? 'selected' : ''}>Class ${i}</option>`;
+    }
+    return options;
+}
+
+// Function to update student details
+function updateStudentDetails(formData, studentId) {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+            // Remove the form from the document
+            var form = document.getElementById("editForm");
+            if (form) {
+                form.parentNode.removeChild(form);
+            }
+            // Show the student list
+            document.getElementById("studentListContainer").style.display = "block";
+            // Reload the student list after updating details
+            loadDoc();
+        }
+    };
+    // Open a POST request to update student details
+    xhttp.open("POST", "/updateStudentDetails?studentId=" + studentId, true);
+    xhttp.send(formData);
+}
+
+
+        // Function to verify a student
+        function verifyStudent(studentId, verifyButton) {
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    // Reload the student list after verification
+                    loadDoc();
+                }
+            };
+            xhttp.open("POST", "/verifyStudent", true);
+            xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+            xhttp.send("studentId=" + studentId);
+        }
+
+        // Function to block a student
+        function blockStudent(studentId, blockButton) {
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    // Reload the student list after blocking
+                    loadDoc();
+                }
+            };
+            xhttp.open("POST", "/blockStudent", true);
+            xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+            xhttp.send("studentId=" + studentId);
+        }
+
+        // Call the function to load student information
+        loadDoc();
+
+    function deletestudentstart(studentId) {
+        var confirmDelete = confirm("Are you sure you want to delete this student?");
+        if (confirmDelete) {
+            deleteStudent(studentId);
+        }
+    }
+
+// Function to delete a student
+function deleteStudent(studentId) {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+            // Reload the student list after deletion
+            loadDoc();
+        }
+    };
+    xhttp.open("POST", "/deleteStudent", true);
+    xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    xhttp.send("studentId=" + studentId);
+}
+
+
+// Attach event listener to search input field for keyup event
+document.getElementById("searchInput").addEventListener("keyup", function() {
+    searchStudents(); // Call searchStudents function on every key press
+});
+
+
+// Function to search students based on the input text
+function searchStudents() {
+    var input, filter, studentList, studentItems, studentName, i, txtValue;
+    input = document.getElementById("searchInput");
+    filter = input.value.toUpperCase();
+    studentList = document.getElementById("studentList");
+    studentItems = studentList.getElementsByClassName("student-item");
+    for (i = 0; i < studentItems.length; i++) {
+        studentName = studentItems[i].getElementsByClassName("student-name")[0];
+        if (studentName) {
+            txtValue = studentName.textContent || studentName.innerText;
+            if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                studentItems[i].style.display = "";
+            } else {
+                studentItems[i].style.display = "none";
+            }
+        }
+    }
+}
+
+// Function to reload all students
+function reloadAllStudents() {
+    loadDoc(); // Call your function to reload students
+}
+
+    </script>
+</body>
+</html>
